@@ -10,8 +10,30 @@ import Foundation
 
 class ProfanityResources {
     
-    class func profanityFileURL() -> URL? {
-        return Bundle(for: ProfanityResources.self).url(forResource: "Profanity", withExtension: "json")
+    class func getFilterFilesURLS() -> [URL]? {
+        let fm = FileManager.default
+        let path = Bundle(for: ProfanityResources.self).resourcePath!
+        
+        var urls = [URL]()
+        
+        do {
+            let fileNames = try fm.contentsOfDirectory(atPath: path)
+            
+            
+            for fileName in fileNames {
+                let token = fileName.components(separatedBy: ".")
+                let fileNameWithoutExtension = token[0]
+                
+                guard let url = Bundle(for: ProfanityResources.self).url(forResource: fileNameWithoutExtension, withExtension: "json")
+                    else { continue }
+                
+                urls.append(url)
+            }
+            
+            return urls
+        } catch {
+            return []
+        }
     }
 }
 
@@ -19,22 +41,27 @@ struct ProfanityDictionary {
     
     static let profaneWords: Set<String> = {
         
-        guard let fileURL = ProfanityResources.profanityFileURL() else {
-            return Set<String>()
-        }
+        guard let fileURLS = ProfanityResources.getFilterFilesURLS()
+            else { return Set<String>() }
         
-        do {
-            let fileData = try Data(contentsOf: fileURL, options: NSData.ReadingOptions.uncached)
-            
-            guard let words = try JSONSerialization.jsonObject(with: fileData, options: []) as? [String] else {
+        var wordStrings = [String]()
+        
+        for url in fileURLS {
+            do {
+                let fileData = try Data(contentsOf: url, options: NSData.ReadingOptions.uncached)
+                
+                guard let words = try JSONSerialization.jsonObject(with: fileData, options: []) as? [String] else {
+                    return Set<String>()
+                }
+                
+                wordStrings.append(contentsOf: words)
+                
+            } catch {
                 return Set<String>()
             }
-            
-            return Set(words)
-            
-        } catch {
-            return Set<String>()
         }
+        
+        return Set(wordStrings)
     }()
 }
 
